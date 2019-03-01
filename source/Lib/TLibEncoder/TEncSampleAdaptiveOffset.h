@@ -106,10 +106,18 @@ public:
 public: //methods
   Void getPreDBFStatistics(TComPic* pPic);
 private: //methods
+#if UNOCCUPIED_RDO
+  Void getStatistics(SAOStatData*** blkStats, TComPicYuv* orgYuv, TComPicYuv* occupancyYuv, TComPicYuv* srcYuv,TComPic* pPic, Bool isCalculatePreDeblockSamples = false);
+#else
   Void getStatistics(SAOStatData*** blkStats, TComPicYuv* orgYuv, TComPicYuv* srcYuv,TComPic* pPic, Bool isCalculatePreDeblockSamples = false);
+#endif
   Void decidePicParams(Bool* sliceEnabled, const TComPic* pic, const Double saoEncodingRate, const Double saoEncodingRateChroma, const Bool bResetStateAfterIRAP);
   Void decideBlkParams(TComPic* pic, Bool* sliceEnabled, SAOStatData*** blkStats, TComPicYuv* srcYuv, TComPicYuv* resYuv, SAOBlkParam* reconParams, SAOBlkParam* codedParams, const Bool bTestSAODisableAtPictureLevel, const Double saoEncodingRate, const Double saoEncodingRateChroma);
+#if UNOCCUPIED_RDO
+  Void getBlkStats(const ComponentID compIdx, const Int channelBitDepth, SAOStatData* statsDataTypes, Pel* srcBlk, Pel* orgBlk, Pel* occupancyBlk, Int srcStride, Int orgStride, Int occupancyStride, Int width, Int height, Bool isLeftAvail, Bool isRightAvail, Bool isAboveAvail, Bool isBelowAvail, Bool isAboveLeftAvail, Bool isAboveRightAvail, Bool isCalculatePreDeblockSamples);
+#else
   Void getBlkStats(const ComponentID compIdx, const Int channelBitDepth, SAOStatData* statsDataTypes, Pel* srcBlk, Pel* orgBlk, Int srcStride, Int orgStride, Int width, Int height, Bool isLeftAvail,  Bool isRightAvail, Bool isAboveAvail, Bool isBelowAvail, Bool isAboveLeftAvail, Bool isAboveRightAvail, Bool isCalculatePreDeblockSamples);
+#endif
   Void deriveModeNewRDO(const BitDepths &bitDepths, Int ctuRsAddr, SAOBlkParam* mergeList[NUM_SAO_MERGE_TYPES], Bool* sliceEnabled, SAOStatData*** blkStats, SAOBlkParam& modeParam, Double& modeNormCost, TEncSbac** cabacCoderRDO, Int inCabacLabel);
   Void deriveModeMergeRDO(const BitDepths &bitDepths, Int ctuRsAddr, SAOBlkParam* mergeList[NUM_SAO_MERGE_TYPES], Bool* sliceEnabled, SAOStatData*** blkStats, SAOBlkParam& modeParam, Double& modeNormCost, TEncSbac** cabacCoderRDO, Int inCabacLabel);
   Int64 getDistortion(const Int channelBitDepth, Int typeIdc, Int typeAuxInfo, Int* offsetVal, SAOStatData& statData);

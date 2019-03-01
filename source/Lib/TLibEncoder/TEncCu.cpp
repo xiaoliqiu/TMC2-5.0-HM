@@ -76,6 +76,10 @@ Void TEncCu::create(UChar uhTotalDepth, UInt uiMaxWidth, UInt uiMaxHeight, Chrom
   m_ppcOrigYuv     = new TComYuv*[m_uhTotalDepth-1];
   m_ppcNoCorrYuv   = new TComYuv*[m_uhTotalDepth-1];
 
+#if UNOCCUPIED_RDO
+  m_ppcOccupancyYuv = new TComYuv*[m_uhTotalDepth - 1];
+#endif
+
   UInt uiNumPartitions;
   for( i=0 ; i<m_uhTotalDepth-1 ; i++)
   {
@@ -96,6 +100,9 @@ Void TEncCu::create(UChar uhTotalDepth, UInt uiMaxWidth, UInt uiMaxHeight, Chrom
 
     m_ppcOrigYuv    [i] = new TComYuv; m_ppcOrigYuv    [i]->create(uiWidth, uiHeight, chromaFormat);
     m_ppcNoCorrYuv  [i] = new TComYuv; m_ppcNoCorrYuv  [i]->create(uiWidth, uiHeight, chromaFormat);
+#if UNOCCUPIED_RDO
+    m_ppcOccupancyYuv[i] = new TComYuv; m_ppcOccupancyYuv[i]->create(uiWidth, uiHeight, chromaFormat);
+#endif
   }
 
   m_bEncodeDQP                     = false;
@@ -158,6 +165,13 @@ Void TEncCu::destroy()
     {
       m_ppcNoCorrYuv[i]->destroy();   delete m_ppcNoCorrYuv[i];   m_ppcNoCorrYuv[i] = NULL;
     }
+
+#if UNOCCUPIED_RDO
+    if (m_ppcOccupancyYuv[i])
+    {
+      m_ppcOccupancyYuv[i]->destroy(); delete m_ppcOccupancyYuv[i]; m_ppcOccupancyYuv[i] = NULL;
+    }
+#endif
   }
   if(m_ppcBestCU)
   {
@@ -210,6 +224,13 @@ Void TEncCu::destroy()
     delete [] m_ppcNoCorrYuv;
     m_ppcNoCorrYuv = NULL;
   }
+#if UNOCCUPIED_RDO
+  if (m_ppcOccupancyYuv)
+  {
+    delete[] m_ppcOccupancyYuv;
+    m_ppcOccupancyYuv = NULL;
+  }
+#endif
 }
 
 /** \param    pcEncTop      pointer of encoder class
@@ -499,6 +520,9 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const 
 
   // get Original YUV data from picture
   m_ppcOrigYuv[uiDepth]->copyFromPicYuv( pcPic->getPicYuvOrg(), rpcBestCU->getCtuRsAddr(), rpcBestCU->getZorderIdxInCtu() );
+#if UNOCCUPIED_RDO
+  m_ppcOccupancyYuv[uiDepth]->copyFromPicYuv(pcPic->getOccupancyMapYuv(), rpcBestCU->getCtuRsAddr(), rpcBestCU->getZorderIdxInCtu());
+#endif
 
   // variable for Cbf fast mode PU decision
   Bool    doNotBlockPu = true;
@@ -1922,7 +1946,12 @@ Void TEncCu::xCheckRDCostMerge2Nx2N( TComDataCU*& rpcBestCU, TComDataCU*& rpcTem
                                                        (uiNoResidual != 0),
                                                        m_ppcNoCorrYuv  [uhDepth],
                                                        ACT_ORG_CLR
+#if UNOCCUPIED_RDO
+                                                       DEBUG_STRING_PASS_INTO(tmpStr),
+                                                       m_ppcOccupancyYuv [uhDepth] );
+#else
                                                        DEBUG_STRING_PASS_INTO(tmpStr) );
+#endif
           }
           rpcTempCU->setSkipFlagSubParts( rpcTempCU->getQtRootCbf(0) == 0, 0, uhDepth );
 
@@ -2128,7 +2157,11 @@ Void TEncCu::xCheckRDCostInter( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, 
       }
       else
       {
+#if UNOCCUPIED_RDO
+        m_pcPredSearch->encodeResAndCalcRdInterCU( rpcTempCU, m_ppcOrigYuv[uhDepth], pcTmpPredYuv, m_ppcResiYuvTemp[uhDepth], m_ppcResiYuvBest[uhDepth], m_ppcRecoYuvTemp[uhDepth], false, m_ppcNoCorrYuv[uhDepth], ACT_ORG_CLR DEBUG_STRING_PASS_INTO(sTest), m_ppcOccupancyYuv[uhDepth] );
+#else
         m_pcPredSearch->encodeResAndCalcRdInterCU( rpcTempCU, m_ppcOrigYuv[uhDepth], pcTmpPredYuv, m_ppcResiYuvTemp[uhDepth], m_ppcResiYuvBest[uhDepth], m_ppcRecoYuvTemp[uhDepth], false, m_ppcNoCorrYuv[uhDepth], ACT_ORG_CLR DEBUG_STRING_PASS_INTO(sTest) );
+#endif
       }
     }
     else
@@ -2257,7 +2290,11 @@ Void TEncCu::xCheckRDCostIntra( TComDataCU *&rpcBestCU,
   }
   else
   {
+#if UNOCCUPIED_RDO
+    m_pcPredSearch->estIntraPredLumaQT( rpcTempCU, m_ppcOrigYuv[uiDepth], m_ppcOccupancyYuv[uiDepth], m_ppcPredYuvTemp[uiDepth], m_ppcResiYuvTemp[uiDepth], m_ppcRecoYuvTemp[uiDepth], resiLuma DEBUG_STRING_PASS_INTO(sTest) );
+#else
     m_pcPredSearch->estIntraPredLumaQT( rpcTempCU, m_ppcOrigYuv[uiDepth], m_ppcPredYuvTemp[uiDepth], m_ppcResiYuvTemp[uiDepth], m_ppcRecoYuvTemp[uiDepth], resiLuma DEBUG_STRING_PASS_INTO(sTest) );
+#endif
   }
 
   m_ppcRecoYuvTemp[uiDepth]->copyToPicComponent(COMPONENT_Y, rpcTempCU->getPic()->getPicYuvRec(), rpcTempCU->getCtuRsAddr(), rpcTempCU->getZorderIdxInCtu() );
@@ -2270,7 +2307,11 @@ Void TEncCu::xCheckRDCostIntra( TComDataCU *&rpcBestCU,
     }
     else
     {
+#if UNOCCUPIED_RDO
+      m_pcPredSearch->estIntraPredChromaQT( rpcTempCU, m_ppcOrigYuv[uiDepth], m_ppcOccupancyYuv[uiDepth], m_ppcPredYuvTemp[uiDepth], m_ppcResiYuvTemp[uiDepth], m_ppcRecoYuvTemp[uiDepth], resiLuma DEBUG_STRING_PASS_INTO(sTest) );
+#else
       m_pcPredSearch->estIntraPredChromaQT( rpcTempCU, m_ppcOrigYuv[uiDepth], m_ppcPredYuvTemp[uiDepth], m_ppcResiYuvTemp[uiDepth], m_ppcRecoYuvTemp[uiDepth], resiLuma DEBUG_STRING_PASS_INTO(sTest) );
+#endif
     }
   }
 

@@ -76,6 +76,10 @@ private:
   Int*                  m_occupancyMap;
 #endif
 
+#if UNOCCUPIED_RDO
+  TComPicYuv*           m_occupancyMapYuv;
+#endif
+
   Bool                  m_bReconstructed;
   Bool                  m_bNeededForOutput;
   UInt                  m_uiCurrSliceIdx;         // Index of current slice
@@ -100,6 +104,10 @@ public:
 #if PATCH_BASED_MVP || PATCH_BASED_MVP_NON_NORMATIVE
   long long*    getBlockToPatch() const                 { return m_blockToPatch; }
   Int*          getOccupancyMap() const                 { return m_occupancyMap; }
+#endif
+
+#if UNOCCUPIED_RDO
+  TComPicYuv*   getOccupancyMapYuv() const              { return m_occupancyMapYuv; }
 #endif
 
 #if REDUCED_ENCODER_MEMORY

@@ -92,6 +92,10 @@ Void TAppEncTop::xInitLibCfg()
   m_cTEncTop.setOccupancyMapFileName                              ( m_occupancyMapFileName );
 #endif
 
+#if !PATCH_BASED_MVP_NON_NORMATIVE && UNOCCUPIED_RDO
+  m_cTEncTop.setOccupancyMapFileName                              ( m_occupancyMapFileName );
+#endif
+
   m_cTEncTop.setProfile                                           ( m_profile);
   m_cTEncTop.setLevel                                             ( m_levelTier, m_level);
   m_cTEncTop.setProgressiveSourceFlag                             ( m_progressiveSourceFlag);

@@ -116,6 +116,10 @@ protected:
   std::string m_occupancyFileName;
 #endif
 
+#if !PATCH_BASED_MVP_NON_NORMATIVE && UNOCCUPIED_RDO
+  std::string m_occupancyFileName;
+#endif
+
   //==== File I/O ========
   Int       m_iFrameRate;
   Int       m_FrameSkip;
@@ -481,6 +485,11 @@ public:
   Void setBlockToPatchFileName(std::string blockToPatchFileName) { m_blockToPatchFileName = blockToPatchFileName; }
   std::string getBlockToPatchFileName()                          { return m_blockToPatchFileName; }
 
+  Void setOccupancyMapFileName(std::string occupancyMapFileName) { m_occupancyFileName = occupancyMapFileName; }
+  std::string getOccupancyMapFileName()                          { return m_occupancyFileName; }
+#endif
+
+#if !PATCH_BASED_MVP_NON_NORMATIVE && UNOCCUPIED_RDO
   Void setOccupancyMapFileName(std::string occupancyMapFileName) { m_occupancyFileName = occupancyMapFileName; }
   std::string getOccupancyMapFileName()                          { return m_occupancyFileName; }
 #endif

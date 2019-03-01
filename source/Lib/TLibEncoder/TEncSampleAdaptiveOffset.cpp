@@ -249,8 +249,16 @@ Void TEncSampleAdaptiveOffset::SAOProcess(TComPic* pPic, Bool* sliceEnabled, con
   srcYuv->setBorderExtension(false);
   srcYuv->extendPicBorder();
 
+#if UNOCCUPIED_RDO
+  TComPicYuv* occupancyYuv = pPic->getOccupancyMapYuv();
+#endif
+
   //collect statistics
+#if UNOCCUPIED_RDO
+  getStatistics(m_statData, orgYuv, occupancyYuv, srcYuv, pPic);
+#else
   getStatistics(m_statData, orgYuv, srcYuv, pPic);
+#endif
   if(isPreDBFSamplesUsed)
   {
     addPreDBFStatistics(m_statData);
@@ -267,7 +275,11 @@ Void TEncSampleAdaptiveOffset::SAOProcess(TComPic* pPic, Bool* sliceEnabled, con
 
 Void TEncSampleAdaptiveOffset::getPreDBFStatistics(TComPic* pPic)
 {
+#if UNOCCUPIED_RDO
+  getStatistics(m_preDBFstatData, pPic->getPicYuvOrg(), pPic->getOccupancyMapYuv(), pPic->getPicYuvRec(), pPic, true);
+#else
   getStatistics(m_preDBFstatData, pPic->getPicYuvOrg(), pPic->getPicYuvRec(), pPic, true);
+#endif
 }
 
 Void TEncSampleAdaptiveOffset::addPreDBFStatistics(SAOStatData*** blkStats)
@@ -284,7 +296,11 @@ Void TEncSampleAdaptiveOffset::addPreDBFStatistics(SAOStatData*** blkStats)
   }
 }
 
+#if UNOCCUPIED_RDO
+Void TEncSampleAdaptiveOffset::getStatistics(SAOStatData*** blkStats, TComPicYuv* orgYuv, TComPicYuv* occupancyYuv, TComPicYuv* srcYuv, TComPic* pPic, Bool isCalculatePreDeblockSamples)
+#else
 Void TEncSampleAdaptiveOffset::getStatistics(SAOStatData*** blkStats, TComPicYuv* orgYuv, TComPicYuv* srcYuv, TComPic* pPic, Bool isCalculatePreDeblockSamples)
+#endif
 {
   Bool isLeftAvail,isRightAvail,isAboveAvail,isBelowAvail,isAboveLeftAvail,isAboveRightAvail,isBelowLeftAvail,isBelowRightAvail;
 
@@ -321,8 +337,18 @@ Void TEncSampleAdaptiveOffset::getStatistics(SAOStatData*** blkStats, TComPicYuv
       Int  orgStride  = orgYuv->getStride(component);
       Pel* orgBlk     = orgYuv->getAddr(component) + ((yPos >> componentScaleY) * orgStride) + (xPos >> componentScaleX);
 
+#if UNOCCUPIED_RDO
+      Int  occupancyStride = occupancyYuv->getStride(component);
+      Pel* occupancyBlk = occupancyYuv->getAddr(component) + ((yPos >> componentScaleY) * occupancyStride) + (xPos >> componentScaleX);
+
+#endif
+
       getBlkStats(component, pPic->getPicSym()->getSPS().getBitDepth(toChannelType(component)), blkStats[ctuRsAddr][component]
+#if UNOCCUPIED_RDO
+                , srcBlk, orgBlk, occupancyBlk, srcStride, orgStride, occupancyStride, (width  >> componentScaleX), (height >> componentScaleY)
+#else
                 , srcBlk, orgBlk, srcStride, orgStride, (width  >> componentScaleX), (height >> componentScaleY)
+#endif
                 , isLeftAvail,  isRightAvail, isAboveAvail, isBelowAvail, isAboveLeftAvail, isAboveRightAvail
                 , isCalculatePreDeblockSamples
                 );
@@ -909,7 +935,11 @@ Void TEncSampleAdaptiveOffset::decideBlkParams(TComPic* pic, Bool* sliceEnabled,
 
 
 Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int channelBitDepth, SAOStatData* statsDataTypes
+#if UNOCCUPIED_RDO
+                        , Pel* srcBlk, Pel* orgBlk, Pel* occupancyBlk, Int srcStride, Int orgStride, Int occupancyStride, Int width, Int height
+#else
                         , Pel* srcBlk, Pel* orgBlk, Int srcStride, Int orgStride, Int width, Int height
+#endif
                         , Bool isLeftAvail,  Bool isRightAvail, Bool isAboveAvail, Bool isBelowAvail, Bool isAboveLeftAvail, Bool isAboveRightAvail
                         , Bool isCalculatePreDeblockSamples
                         )
@@ -940,6 +970,10 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
   Int* skipLinesR = m_skipLinesR[compIdx];
   Int* skipLinesB = m_skipLinesB[compIdx];
 
+#if UNOCCUPIED_RDO
+  Pel *occupancyLine;
+#endif
+
   for(Int typeIdx=0; typeIdx< NUM_SAO_NEW_TYPES; typeIdx++)
   {
     SAOStatData& statsData= statsDataTypes[typeIdx];
@@ -947,6 +981,9 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
 
     srcLine = srcBlk;
     orgLine = orgBlk;
+#if UNOCCUPIED_RDO
+    occupancyLine = occupancyBlk;
+#endif
     diff    = statsData.diff;
     count   = statsData.count;
     switch(typeIdx)
@@ -970,12 +1007,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
             signRight =  (SChar)sgn(srcLine[x] - srcLine[x+1]);
             edgeType  =  signRight + signLeft;
             signLeft  = -signRight;
-
+#if UNOCCUPIED_RDO
+            if ( occupancyLine[x] ) 
+            {
+              diff [edgeType] += (orgLine[x] - srcLine[x]);
+              count[edgeType] ++;
+            }
+#else
             diff [edgeType] += (orgLine[x] - srcLine[x]);
             count[edgeType] ++;
+#endif
           }
           srcLine  += srcStride;
           orgLine  += orgStride;
+#if UNOCCUPIED_RDO
+          occupancyLine += occupancyStride;
+#endif
         }
         if(isCalculatePreDeblockSamples)
         {
@@ -992,12 +1039,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
                 signRight =  (SChar)sgn(srcLine[x] - srcLine[x+1]);
                 edgeType  =  signRight + signLeft;
                 signLeft  = -signRight;
-
+#if UNOCCUPIED_RDO
+                if ( occupancyLine[x] ) 
+                {
+                  diff [edgeType] += (orgLine[x] - srcLine[x]);
+                  count[edgeType] ++;
+                }
+#else
                 diff [edgeType] += (orgLine[x] - srcLine[x]);
                 count[edgeType] ++;
+#endif
               }
               srcLine  += srcStride;
               orgLine  += orgStride;
+#if UNOCCUPIED_RDO
+              occupancyLine += occupancyStride;
+#endif
             }
           }
         }
@@ -1021,6 +1078,9 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
         {
           srcLine += srcStride;
           orgLine += orgStride;
+#if UNOCCUPIED_RDO
+          occupancyLine += occupancyStride;
+#endif
         }
 
         Pel* srcLineAbove = srcLine - srcStride;
@@ -1039,12 +1099,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
             signDown  = (SChar)sgn(srcLine[x] - srcLineBelow[x]);
             edgeType  = signDown + signUpLine[x];
             signUpLine[x]= -signDown;
-
+#if UNOCCUPIED_RDO
+            if ( occupancyLine[x] ) 
+            {
+              diff [edgeType] += (orgLine[x] - srcLine[x]);
+              count[edgeType] ++;
+            }
+#else
             diff [edgeType] += (orgLine[x] - srcLine[x]);
             count[edgeType] ++;
+#endif
           }
           srcLine += srcStride;
           orgLine += orgStride;
+#if UNOCCUPIED_RDO
+          occupancyLine += occupancyStride;
+#endif
         }
         if(isCalculatePreDeblockSamples)
         {
@@ -1061,11 +1131,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
               for (x=startX; x<endX; x++)
               {
                 edgeType = sgn(srcLine[x] - srcLineBelow[x]) + sgn(srcLine[x] - srcLineAbove[x]);
+#if UNOCCUPIED_RDO
+                if ( occupancyLine[x] ) 
+                {
+                  diff [edgeType] += (orgLine[x] - srcLine[x]);
+                  count[edgeType] ++;
+                }
+#else
                 diff [edgeType] += (orgLine[x] - srcLine[x]);
                 count[edgeType] ++;
+#endif
               }
               srcLine  += srcStride;
               orgLine  += orgStride;
+#if UNOCCUPIED_RDO
+              occupancyLine += occupancyStride;
+#endif
             }
           }
         }
@@ -1104,12 +1185,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
         for(x=firstLineStartX; x<firstLineEndX; x++)
         {
           edgeType = sgn(srcLine[x] - srcLineAbove[x-1]) - signUpLine[x+1];
+#if UNOCCUPIED_RDO
+          if ( occupancyLine[x] ) 
+          {
+            diff [edgeType] += (orgLine[x] - srcLine[x]);
+            count[edgeType] ++;
+          }
+#else
           diff [edgeType] += (orgLine[x] - srcLine[x]);
           count[edgeType] ++;
+#endif
         }
         srcLine  += srcStride;
         orgLine  += orgStride;
-
+#if UNOCCUPIED_RDO
+        occupancyLine += occupancyStride;
+#endif
 
         //middle lines
         for (y=1; y<endY; y++)
@@ -1120,9 +1211,16 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
           {
             signDown = (SChar)sgn(srcLine[x] - srcLineBelow[x+1]);
             edgeType = signDown + signUpLine[x];
+#if UNOCCUPIED_RDO
+            if ( occupancyLine[x] ) 
+            {
+              diff [edgeType] += (orgLine[x] - srcLine[x]);
+              count[edgeType] ++;
+            }
+#else
             diff [edgeType] += (orgLine[x] - srcLine[x]);
             count[edgeType] ++;
-
+#endif
             signDownLine[x+1] = -signDown;
           }
           signDownLine[startX] = (SChar)sgn(srcLineBelow[startX] - srcLine[startX-1]);
@@ -1133,6 +1231,9 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
 
           srcLine += srcStride;
           orgLine += orgStride;
+#if UNOCCUPIED_RDO
+          occupancyLine += occupancyStride;
+#endif
         }
         if(isCalculatePreDeblockSamples)
         {
@@ -1149,11 +1250,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
               for (x=startX; x< endX; x++)
               {
                 edgeType = sgn(srcLine[x] - srcLineBelow[x+1]) + sgn(srcLine[x] - srcLineAbove[x-1]);
+#if UNOCCUPIED_RDO
+                if ( occupancyLine[x] ) 
+                {
+                  diff [edgeType] += (orgLine[x] - srcLine[x]);
+                  count[edgeType] ++;
+                }
+#else
                 diff [edgeType] += (orgLine[x] - srcLine[x]);
                 count[edgeType] ++;
+#endif
               }
               srcLine  += srcStride;
               orgLine  += orgStride;
+#if UNOCCUPIED_RDO
+              occupancyLine += occupancyStride;
+#endif
             }
           }
         }
@@ -1192,12 +1304,23 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
         for(x=firstLineStartX; x<firstLineEndX; x++)
         {
           edgeType = sgn(srcLine[x] - srcLineAbove[x+1]) - signUpLine[x-1];
+#if UNOCCUPIED_RDO
+          if ( occupancyLine[x] ) 
+          {
+            diff [edgeType] += (orgLine[x] - srcLine[x]);
+            count[edgeType] ++;
+          }
+#else
           diff [edgeType] += (orgLine[x] - srcLine[x]);
           count[edgeType] ++;
+#endif
         }
 
         srcLine += srcStride;
         orgLine += orgStride;
+#if UNOCCUPIED_RDO
+        occupancyLine += occupancyStride;
+#endif
 
         //middle lines
         for (y=1; y<endY; y++)
@@ -1209,14 +1332,25 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
             signDown = (SChar)sgn(srcLine[x] - srcLineBelow[x-1]);
             edgeType = signDown + signUpLine[x];
 
+#if UNOCCUPIED_RDO
+            if ( occupancyLine[x] ) 
+            {
+              diff [edgeType] += (orgLine[x] - srcLine[x]);
+              count[edgeType] ++;
+            }
+#else
             diff [edgeType] += (orgLine[x] - srcLine[x]);
             count[edgeType] ++;
+#endif
 
             signUpLine[x-1] = -signDown;
           }
           signUpLine[endX-1] = (SChar)sgn(srcLineBelow[endX-1] - srcLine[endX]);
           srcLine  += srcStride;
           orgLine  += orgStride;
+#if UNOCCUPIED_RDO
+          occupancyLine += occupancyStride;
+#endif
         }
         if(isCalculatePreDeblockSamples)
         {
@@ -1233,11 +1367,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
               for (x=startX; x<endX; x++)
               {
                 edgeType = sgn(srcLine[x] - srcLineBelow[x-1]) + sgn(srcLine[x] - srcLineAbove[x+1]);
+#if UNOCCUPIED_RDO
+                if ( occupancyLine[x] ) 
+                {
+                  diff [edgeType] += (orgLine[x] - srcLine[x]);
+                  count[edgeType] ++;
+                }
+#else
                 diff [edgeType] += (orgLine[x] - srcLine[x]);
                 count[edgeType] ++;
+#endif
               }
               srcLine  += srcStride;
               orgLine  += orgStride;
+#if UNOCCUPIED_RDO
+              occupancyLine += occupancyStride;
+#endif
             }
           }
         }
@@ -1259,11 +1404,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
           {
 
             Int bandIdx= srcLine[x] >> shiftBits;
+#if UNOCCUPIED_RDO
+            if ( occupancyLine[x] )
+            {
+              diff [bandIdx] += (orgLine[x] - srcLine[x]);
+              count[bandIdx] ++;
+            }
+#else
             diff [bandIdx] += (orgLine[x] - srcLine[x]);
             count[bandIdx] ++;
+#endif
           }
           srcLine += srcStride;
           orgLine += orgStride;
+#if UNOCCUPIED_RDO
+          occupancyLine += occupancyStride;
+#endif
         }
         if(isCalculatePreDeblockSamples)
         {
@@ -1277,12 +1433,22 @@ Void TEncSampleAdaptiveOffset::getBlkStats(const ComponentID compIdx, const Int 
               for (x=startX; x< endX; x++)
               {
                 Int bandIdx= srcLine[x] >> shiftBits;
+#if UNOCCUPIED_RDO
+                if (occupancyLine[x])
+                {
+                  diff[bandIdx] += (orgLine[x] - srcLine[x]);
+                  count[bandIdx] ++;
+                }
+#else
                 diff [bandIdx] += (orgLine[x] - srcLine[x]);
                 count[bandIdx] ++;
+#endif
               }
               srcLine  += srcStride;
               orgLine  += orgStride;
-
+#if UNOCCUPIED_RDO
+              occupancyLine += occupancyStride;
+#endif
             }
 
           }

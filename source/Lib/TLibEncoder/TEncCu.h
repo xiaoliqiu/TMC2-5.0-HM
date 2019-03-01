@@ -79,6 +79,10 @@ private:
   TComYuv**               m_ppcOrigYuv;     ///< Original Yuv for each depth
   TComYuv**               m_ppcNoCorrYuv;
 
+#if UNOCCUPIED_RDO
+  TComYuv**               m_ppcOccupancyYuv;
+#endif
+
   //  Data : encoder control
   Bool                    m_bEncodeDQP;
   Bool                    m_bFastDeltaQP;

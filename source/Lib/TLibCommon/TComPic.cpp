@@ -68,6 +68,10 @@ TComPic::TComPic()
   m_blockToPatch = NULL;
   m_occupancyMap = NULL;
 #endif
+
+#if UNOCCUPIED_RDO
+  m_occupancyMapYuv = NULL;
+#endif
 }
 
 TComPic::~TComPic()
@@ -113,6 +117,10 @@ Void TComPic::create( const TComSPS &sps, const TComPPS &pps, const Bool bIsVirt
 #if PATCH_BASED_MVP || PATCH_BASED_MVP_NON_NORMATIVE
   m_blockToPatch = new long long[iWidth / 16 * iHeight / 16];
   m_occupancyMap = new Int[iWidth * iHeight];
+#endif
+
+#if UNOCCUPIED_RDO
+  m_occupancyMapYuv = new TComPicYuv;  m_occupancyMapYuv->create(iWidth, iHeight, chromaFormatIDC, uiMaxCuWidth, uiMaxCuHeight, uiMaxDepth, true);
 #endif
 
   // there are no SEI messages associated with this picture initially
@@ -228,6 +236,15 @@ Void TComPic::destroy()
 
   delete m_occupancyMap;
   m_occupancyMap = NULL;
+#endif
+
+#if UNOCCUPIED_RDO
+  if (m_occupancyMapYuv)
+  {
+    m_occupancyMapYuv->destroy();
+    delete m_occupancyMapYuv;
+    m_occupancyMapYuv = NULL;
+  }
 #endif
 
   deleteSEIs(m_SEIs);

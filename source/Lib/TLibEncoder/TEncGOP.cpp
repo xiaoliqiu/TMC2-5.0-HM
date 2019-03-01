@@ -1686,6 +1686,55 @@ Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rc
         }
 #endif
 
+#if UNOCCUPIED_RDO
+        Int picWidth = pcPic->getPicYuvRec()->getWidth(COMPONENT_Y);
+        Int picHeight = pcPic->getPicYuvRec()->getHeight(COMPONENT_Y);
+        Int currPOC = pcSlice->getPOC() / 2;           // One occupancy map for every two frames
+        long long offset = (long long)currPOC * picWidth * picHeight;
+        std::string occupancyMapFileName = m_pcEncTop->getOccupancyMapFileName();
+        FILE* occupancyMapFile = NULL;
+        occupancyMapFile = fopen(occupancyMapFileName.c_str(), "rb");
+        fseek(occupancyMapFile, offset * sizeof(Int), SEEK_SET);
+        Int* tempOccupancyMap = new Int[picWidth * picHeight];
+        size_t readSize = fread(tempOccupancyMap, sizeof(Int), picWidth * picHeight, occupancyMapFile);
+        if (readSize != picWidth * picHeight)
+        {
+          printf("error");
+        }
+        fclose(occupancyMapFile);
+
+        TComPicYuv* occupancyMap = pcPic->getOccupancyMapYuv();
+        Pel* lumaAddr = occupancyMap->getAddr(COMPONENT_Y);
+        Int lumaStride = occupancyMap->getStride(COMPONENT_Y);
+
+        // Luma
+        for (Int i = 0; i < picHeight; i++)
+        {
+          for (Int j = 0; j < picWidth; j++)
+          {
+            lumaAddr[i * lumaStride + j] = tempOccupancyMap[i * picWidth + j];
+          }
+        }
+
+        Pel* cbAddr = occupancyMap->getAddr(COMPONENT_Cb);
+        Pel* crAddr = occupancyMap->getAddr(COMPONENT_Cr);
+        Int chromaStride = occupancyMap->getStride(COMPONENT_Cb);
+        Int chromaHeight = occupancyMap->getHeight(COMPONENT_Cb);
+        Int chromaWidth = occupancyMap->getWidth(COMPONENT_Cb);
+
+        // chroma
+        for (Int i = 0; i < chromaHeight; i++)
+        {
+          for (Int j = 0; j < chromaWidth; j++)
+          {
+            cbAddr[i * chromaStride + j] = tempOccupancyMap[i * 2 * picWidth + j * 2];
+            crAddr[i * chromaStride + j] = tempOccupancyMap[i * 2 * picWidth + j * 2];
+          }
+        }
+        delete tempOccupancyMap;
+        tempOccupancyMap = NULL;
+#endif
+
         m_pcSliceEncoder->compressSlice   ( pcPic, false, false );
 
         const UInt curSliceSegmentEnd = pcSlice->getSliceSegmentCurEndCtuTsAddr();

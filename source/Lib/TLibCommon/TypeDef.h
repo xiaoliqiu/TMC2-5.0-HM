@@ -55,6 +55,8 @@
 #define PATCH_BASED_MVP_NON_NORMATIVE                     1
 #define PATCH_BASED_MVP                                   0
 
+#define UNOCCUPIED_RDO                                    1
+
 #if PATCH_BASED_MVP || PATCH_BASED_MVP_NON_NORMATIVE
 #define MAX_NUM_FRAMES                                    600
 #define MAX_NUM_PATCHES                                   1000
@@ -141,7 +143,7 @@
 
 // This can be enabled by the makefile
 #ifndef RExt__HIGH_BIT_DEPTH_SUPPORT
-#define RExt__HIGH_BIT_DEPTH_SUPPORT                      0 ///< 0 (default) use data type definitions for 8-10 bit video, 1 = use larger data types to allow for up to 16-bit video (originally developed as part of N0188)
+#define RExt__HIGH_BIT_DEPTH_SUPPORT                      1 ///< 0 (default) use data type definitions for 8-10 bit video, 1 = use larger data types to allow for up to 16-bit video (originally developed as part of N0188)
 #endif
 
 #if defined __SSE2__ || defined __AVX2__ || defined __AVX__ || defined _M_AMD64 || defined _M_X64
